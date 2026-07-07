@@ -30,8 +30,8 @@ jobs:
 
       - name: Generate, wrap, and store DEK
         env:
-          KEK_VAULT_URL: https://akvue2dlcod01.vault.azure.net
-          KEK_NAME: kek-${{ inputs.domain }}
-          SECRET_VAULT_URL: https://akvue2dlcod01.vault.azure.net
+          KEK_VAULT_URL: https://akvue2dlcod02.vault.azure.net
+          KEK_NAME: dtbreu2dlcobackd01-kek
+          SECRET_VAULT_URL: https://akvue2dlcod02.vault.azure.net
           DOMAIN: ${{ inputs.domain }}
         run: python scripts/dek_bootstrap.py

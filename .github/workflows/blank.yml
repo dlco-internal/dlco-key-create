@@ -1,0 +1,37 @@
+name: DEK Bootstrap Ceremony
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        required: true
+        type: choice
+        options: [desa, cert, prod]
+
+permissions:
+  id-token: write   # requerido para OIDC
+  contents: read
+
+jobs:
+  generate-and-wrap-dek:
+    runs-on: ubuntu-latest
+    environment: dek-bootstrap   # dispara el gate de aprobación
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install SDK
+        run: pip install azure-identity azure-keyvault-keys azure-keyvault-secrets
+
+      - name: Generate, wrap, and store DEK
+        env:
+          KEK_VAULT_URL: https://akvue2dlcod01.vault.azure.net
+          KEK_NAME: kek-${{ inputs.domain }}
+          SECRET_VAULT_URL: https://akvue2dlcod01.vault.azure.net
+          DOMAIN: ${{ inputs.domain }}
+        run: python scripts/dek_bootstrap.py

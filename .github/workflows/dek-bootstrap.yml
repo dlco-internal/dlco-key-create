@@ -3,11 +3,19 @@ name: DEK Bootstrap Ceremony
 on:
   workflow_dispatch:
     inputs:
-      domain:
+      kek_vault_url:
         required: true
-        type: choice
-        options: [desa, cert, prod]
-
+        type: string
+      kek_name:
+        required: true
+        type: string
+      secret_vault_url:
+        required: true
+        type: string
+      secret_name:
+        required: true
+        type: string
+        
 permissions:
   id-token: write   # requerido para OIDC
   contents: read
@@ -17,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: dek-bootstrap   # dispara el gate de aprobación
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: azure/login@v2
         with:
@@ -30,8 +38,16 @@ jobs:
 
       - name: Generate, wrap, and store DEK
         env:
-          KEK_VAULT_URL: https://akvue2dlcod02.vault.azure.net
-          KEK_NAME: dtbreu2dlcobackd01-kek
-          SECRET_VAULT_URL: https://akvue2dlcod02.vault.azure.net
-          DOMAIN: ${{ inputs.domain }}
+          KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
+          KEK_NAME: ${{ inputs.kek_name }}
+          SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
+          SECRET_NAME: ${{ inputs.secret_name }}
         run: python scripts/dek_bootstrap.py
+
+      - name: Verify wrapped DEK integrity
+        env:
+          KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
+          KEK_NAME: ${{ inputs.kek_name }}
+          SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
+          SECRET_NAME: ${{ inputs.secret_name }}
+        run: python scripts/verify_dek.py

@@ -2,7 +2,7 @@
 
 Ceremonia de aprovisionamiento inicial de **Data Encryption Keys (DEK)** simétricas para el modelo de envelope encryption de la plataforma de datos, ejecutada vía GitHub Actions con autenticación federada (OIDC) contra Azure Key Vault.
 
-> Evento único de bootstrap por segmento `domain × layer`. No es un flujo recurrente ni operativo — ver [Alcance](#alcance).
+> Evento único de bootstrap por ambiente. No es un flujo recurrente ni operativo — ver [Alcance](#alcance).
 
 ## Alcance
 
@@ -30,7 +30,7 @@ La DEK en texto plano **nunca** persiste fuera de la memoria del runner, nunca s
 
 ## Prerrequisitos
 
-- KEK del segmento `domain × layer` ya provisionada en Key Vault (HSM-backed recomendado).
+- KEK del ambiente ya provisionada en Key Vault.
 - App Registration en Entra ID con **federated credential** configurado (sin client secret) — ver [Configuración de identidad](#configuración-de-identidad-oidc-federation).
 - Rol `Key Vault Crypto User` asignado al Service Principal sobre la KEK (permite `wrapKey`/`unwrapKey`).
 - Rol `Key Vault Secrets Officer` asignado al Service Principal sobre el vault de almacenamiento de secretos (permite `setSecret`/`getSecret`).
@@ -125,27 +125,17 @@ Settings → Environments → New environment → `dek-bootstrap`.
 
 - **Deployment branches and tags**: restringir a la rama autorizada (no "No restriction").
 - **Required reviewers**: mínimo 1, idealmente 2 para segregación de funciones.
-  - No disponible en repos privados con GitHub Free — requiere GitHub Team o Enterprise Cloud. Si el repositorio corre en un plan sin esta feature, debe documentarse como limitación y compensarse con un control manual (ver nota en el ADR de arquitectura).
 - **Wait timer**: opcional, mismas restricciones de plan que Required reviewers.
-
-### Si Required reviewers no está disponible (GitHub Free en repos privados)
-
-Control compensatorio manual mientras no se disponga de GitHub Team/Enterprise Cloud a nivel de organización:
-
-- Restringir `Deployment branches and tags` a una única rama controlada por CODEOWNERS o protección de rama con revisión obligatoria de PR antes del merge.
-- Exigir que quien dispare el `workflow_dispatch` sea una persona específica autorizada, y validar esto revisando el campo *"Triggered by"* en el historial de Actions tras cada ejecución.
-- Dejar constancia de la autorización fuera de GitHub (ticket, correo o mensaje referenciado) y anexarla al ADR de la ceremonia correspondiente.
-- Esta limitación debe declararse explícitamente al equipo de Seguridad en la revisión — no debe asumirse silenciosamente como equivalente al control nativo.
 
 ## Ejecución
 
 1. Ve a la pestaña **Actions** → `DEK Bootstrap Ceremony` → **Run workflow**.
-2. Ingresa `domain` y `layer` (ej. `desa`, `bronze`).
+2. Ingresa `kek_vault_url`, 'kek_name', `secret_vault_url` y 'secret_name', según corresponda.
 3. Si el Environment tiene reviewers configurados, el run queda en espera de aprobación.
-4. Tras la aprobación (o directamente si no aplica el gate), el job ejecuta:
+4. Tras la aprobación, el job ejecuta:
    - Autenticación OIDC contra Azure.
    - Generación y wrap de la DEK.
-   - Almacenamiento del secreto `dek-<domain>-<layer>-wrapped` con tags de trazabilidad.
+   - Almacenamiento del secreto con tags de trazabilidad.
    - Verificación de integridad (unwrap + validación de longitud, sin exponer el valor).
 
 ## Verificar el resultado
@@ -155,11 +145,11 @@ Control compensatorio manual mientras no se disponga de GitHub Team/Enterprise C
 ```bash
 az keyvault secret show \
   --vault-name <secret-vault-name> \
-  --name dek-<domain>-<layer>-wrapped \
+  --name <secret-name> \
   --query "tags"
 ```
 
-Tags esperados: `domain`, `layer`, `wrapped_with_kek`, `algorithm`, `provisioned_by`, `provisioned_at`, `ceremony_run_id`.
+Tags esperados: `kek_vault_url`, `wrapped_with_kek`, `algorithm`, `provisioned_by`, `provisioned_at`, `ceremony_run_id`.
 
 **Integridad del wrap**: se ejecuta automáticamente como parte del job (`Verify wrapped DEK integrity`). El log del step confirma longitud de 32 bytes sin exponer el valor.
 
@@ -171,17 +161,11 @@ Tags esperados: `domain`, `layer`, `wrapped_with_kek`, `algorithm`, `provisioned
 | Generación y wrap atómico | Mismo step, mismo job — la DEK en claro nunca se serializa entre steps |
 | Prohibición de persistencia en claro | Nunca se escribe a disco, `GITHUB_OUTPUT`, ni logs |
 | Scope de permisos mínimo | SP con permisos acotados a la KEK y al vault de secretos específicos, no acceso amplio |
-| Aprobación humana | GitHub Environment con required reviewers (sujeto a disponibilidad del plan) |
+| Aprobación humana | GitHub Environment con required reviewers |
 | Runner efímero | GitHub-hosted, destruido al finalizar el job |
 | Trazabilidad | Tags del secreto + run ID de GitHub Actions correlacionable con logs de Key Vault |
 | Verificación de integridad | Unwrap post-almacenamiento con validación de longitud, sin exponer el valor |
 
 ## Notas operativas
 
-- El workflow depende de `actions/checkout@v5` y `azure/login@v2`. GitHub está migrando el runtime de Actions de Node 20 a Node 24 (fin de vida de Node 20: abril 2026; corte definitivo de Actions: otoño 2026). Si aparecen warnings de deprecación de Node, verificar que `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` esté seteado y que las actions usadas estén en su última versión estable.
-- Este es un procedimiento de **ceremonia**, no un pipeline operativo recurrente. Cada ejecución debe quedar documentada como ADR (fecha, aprobador, run ID, segmento domain×layer) en la documentación de arquitectura del chapter de datos.
 - Tras el aprovisionamiento inicial de todos los segmentos requeridos, evaluar deshabilitar (no eliminar) el Service Principal asociado, dado que la rotación de DEKs está proyectada a varios años.
-
-## Documentación relacionada
-
-- ADR — Ceremonia de Aprovisionamiento Inicial de DEK (arquitectura de seguridad, pendiente de revisión por el equipo de Seguridad).

@@ -7,10 +7,10 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.keys.crypto import CryptographyClient, KeyWrapAlgorithm
 from azure.keyvault.secrets import SecretClient
 
-domain = os.environ["DOMAIN"]
 kek_vault_url = os.environ["KEK_VAULT_URL"]
 kek_name = os.environ["KEK_NAME"]
 secret_vault_url = os.environ["SECRET_VAULT_URL"]
+dek_name = os.environ["SECRET_NAME"]
 
 credential = DefaultAzureCredential()
 
@@ -28,13 +28,13 @@ dek_bytes = None
 
 # 4. Persistir SOLO el valor envuelto, con metadata de trazabilidad
 secret_client = SecretClient(vault_url=secret_vault_url, credential=credential)
-secret_name = f"dek-{domain}-wrapped"
+secret_name = f"{dek_name}"
 
 secret_client.set_secret(
     secret_name,
     wrapped_dek_b64,
     tags={
-        "domain": domain,
+        "kek_vault": kek_vault_url,
         "wrapped_with_kek": kek_name,
         "algorithm": "RSA-OAEP-256",
         "provisioned_by": "github-actions-dek-bootstrap",

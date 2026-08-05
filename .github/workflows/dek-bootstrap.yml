@@ -1,4 +1,4 @@
-name: DEK Bootstrap Ceremony
+name: 🔑 DEK Bootstrap Ceremony
 
 on:
   workflow_dispatch:
@@ -15,29 +15,95 @@ on:
       secret_name:
         required: true
         type: string
+      plan_only:
+        type: boolean
+        required: false
+        default: false
+      use_pinned_openssl:
+        description: "true = compilar OpenSSL desde fuente (version pinneada + SHA256); false = usar el OpenSSL del runner (mantenido por Canonical)"
+        type: boolean
+        required: false
+        default: true
         
 permissions:
-  id-token: write   # requerido para OIDC
   contents: read
 
 jobs:
-  generate-and-wrap-dek:
+  validation:
     runs-on: ubuntu-latest
-    environment: dek-bootstrap   # dispara el gate de aprobación
+    outputs:
+      teams: ${{ steps.actorTeams.outputs.teams }}
+    steps:
+      - name: Get Teams from the Actor
+        uses: tspascoal/get-user-teams-membership@v2
+        id: actorTeams
+        with:
+          username: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_READ_ORG }}
+  
+  generate-and-wrap-dek:
+    name: DEK Ceremony
+    needs: validation
+    if: github.ref == 'refs/heads/main' &&  (contains(needs.validation.outputs.teams, 'gh-squad-dlco'))
+    runs-on: ubuntu-latest
+    env:
+      # Actualizar version y SHA256 desde https://www.openssl.org/source/
+      OPENSSL_VERSION: "3.3.2"
+      OPENSSL_SHA256: "2e8a40b01979afe8be0bbfb3de75f7cd6ab4b6e9bf72bd6fd7e48d782c35ee87"
+      OPENSSL_INSTALL_DIR: "/opt/openssl"
     steps:
       - uses: actions/checkout@v5
 
-      - uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build and install pinned OpenSSL
+        if: ${{ inputs.use_pinned_openssl == true }}
+        run: |
+          sudo apt-get install -y --no-install-recommends build-essential perl
+          cd /tmp
+          curl -fsSL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz" \
+            -o "openssl-${OPENSSL_VERSION}.tar.gz"
+          echo "${OPENSSL_SHA256}  openssl-${OPENSSL_VERSION}.tar.gz" | sha256sum --check --strict
+          tar -xzf "openssl-${OPENSSL_VERSION}.tar.gz"
+          cd "openssl-${OPENSSL_VERSION}"
+          ./Configure --prefix="${OPENSSL_INSTALL_DIR}" --openssldir="${OPENSSL_INSTALL_DIR}/etc/ssl" \
+            no-shared enable-ec_nistp_64_gcc_128
+          make -j"$(nproc)"
+          sudo make install_sw
+          echo "${OPENSSL_INSTALL_DIR}/bin" >> "${GITHUB_PATH}"
+
+      - name: Verify pinned OpenSSL
+        if: ${{ inputs.use_pinned_openssl == true }}
+        run: |
+          openssl version
+          openssl version | grep -F "${OPENSSL_VERSION}" || \
+            { echo "ERROR: OpenSSL version mismatch"; exit 1; }
+
+      - name: Verify system OpenSSL (runner-managed)
+        if: ${{ inputs.use_pinned_openssl == false }}
+        run: |
+          echo "ADVERTENCIA: usando OpenSSL del runner. Version reportada:"
+          openssl version
 
       - name: Install SDK
         run: pip install azure-identity azure-keyvault-keys azure-keyvault-secrets
 
-      - name: Generate, wrap, and store DEK
+      - name: Check Azure credentials (plan only)
+        if: ${{ inputs.plan_only == true }}
         env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SP }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_SP }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
+          KEK_NAME: ${{ inputs.kek_name }}
+          SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
+          SECRET_NAME: ${{ inputs.secret_name }}
+        run: python scripts/check_auth.py
+        
+      - name: Generate, wrap, and store DEK
+        if: ${{ inputs.plan_only == false }}
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SP }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_SP }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
           KEK_NAME: ${{ inputs.kek_name }}
           SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
@@ -45,9 +111,15 @@ jobs:
         run: python scripts/dek_bootstrap.py
 
       - name: Verify wrapped DEK integrity
+        if: ${{ inputs.plan_only == false }}
         env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SP }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_SP }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
           KEK_NAME: ${{ inputs.kek_name }}
           SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
           SECRET_NAME: ${{ inputs.secret_name }}
         run: python scripts/verify_dek.py
+
+        

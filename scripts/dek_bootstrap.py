@@ -1,7 +1,7 @@
 # scripts/dek_bootstrap.py
 import os
 import base64
-import json
+import subprocess
 from datetime import datetime, timezone
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.keys.crypto import CryptographyClient, KeyWrapAlgorithm
@@ -14,8 +14,10 @@ dek_name = os.environ["SECRET_NAME"]
 
 credential = DefaultAzureCredential()
 
-# 1. Generar DEK en memoria — nunca se escribe a disco
-dek_bytes = os.urandom(32)  # AES-256
+# 1. Generar DEK en memoria usando OpenSSL RAND_bytes — nunca se escribe a disco
+dek_bytes = subprocess.check_output(["openssl", "rand", "32"], text=False)
+if len(dek_bytes) != 32:
+    raise RuntimeError(f"Unexpected DEK length from openssl rand: {len(dek_bytes)}")
 
 # 2. Obtener referencia a la KEK y envolver
 kek_identifier = f"{kek_vault_url}/keys/{kek_name}"
@@ -43,6 +45,6 @@ secret_client.set_secret(
     },
 )
 
-print(f"DEK wrapped and stored as secret: {secret_name}")
+print("DEK wrapped and stored successfully.")
 print(f"Run ID: {os.environ.get('GITHUB_RUN_ID')}")
 # NO imprimir wrapped_dek_b64 ni dek_bytes bajo ninguna circunstancia

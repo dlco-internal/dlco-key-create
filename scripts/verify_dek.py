@@ -45,7 +45,7 @@ if dek_length != EXPECTED_LENGTH_BYTES:
     )
     sys.exit(1)
  
-print(f"Verificación OK — secreto: {secret_name}")
+print("Verificación OK del secreto configurado.")
 print(f"Longitud de la DEK desenvuelta: {dek_length} bytes (AES-256)")
 print(f"KEK utilizada para validación: {kek_name}")
 print("El valor en claro no fue impreso ni persistido.")

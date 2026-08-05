@@ -6,7 +6,10 @@
 #
 # El valor desenvuelto NUNCA se imprime, se loguea, ni se persiste.
 # Solo se valida su longitud y luego se descarta.
- 
+#
+# No habilitar logging HTTP verbose/debug del SDK de Azure en este script:
+# el body de la respuesta de unwrap_key() contiene la DEK en claro.
+
 import os
 import base64
 import sys
@@ -33,10 +36,18 @@ kek_identifier = f"{kek_vault_url}/keys/{kek_name}"
 crypto_client = CryptographyClient(kek_identifier, credential)
 result = crypto_client.unwrap_key(KeyWrapAlgorithm.rsa_oaep_256, wrapped_dek_bytes)
  
-# 3. Validar longitud SIN imprimir el valor en claro
-dek_length = len(result.key)
-result = None  # descartar referencia inmediatamente
- 
+# 3. Copiar a bytearray mutable y sobrescribir con ceros antes de descartar —
+#    mismo patrón best-effort que dek_bootstrap.py. Límite honesto: esto zera
+#    nuestra copia, no la copia interna que result.key (bytes, inmutable) ya
+#    traía desde el SDK — no hay forma segura de mutar esa in-place desde
+#    Python puro. Validar longitud SIN imprimir el valor en claro.
+dek_bytes = bytearray(result.key)
+result = None  # descartar la referencia del SDK cuanto antes
+dek_length = len(dek_bytes)
+for i in range(len(dek_bytes)):
+    dek_bytes[i] = 0
+dek_bytes = None
+
 if dek_length != EXPECTED_LENGTH_BYTES:
     print(
         f"ERROR: longitud inesperada tras unwrap ({dek_length} bytes, "

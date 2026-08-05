@@ -1,0 +1,30 @@
+{
+  "title": "DEK Bootstrap Ceremony - Secuencia",
+  "participants": [
+    {"id": "u", "label": "Usuario\n(GitHub Actor)", "actor": true},
+    {"id": "v", "label": "GitHub Actions\nvalidation"},
+    {"id": "g", "label": "GitHub Actions\ngenerate-and-wrap-dek"},
+    {"id": "k", "label": "Azure Key Vault\n(KEK)"},
+    {"id": "s", "label": "Azure Key Vault\n(Secrets)"}
+  ],
+  "messages": [
+    {"from": "u", "to": "v", "label": "workflow_dispatch"},
+    {"note": "Inputs:\nkek_vault_url\nkek_name\nsecret_vault_url\nsecret_name\nuse_pinned_openssl", "over": "v"},
+    {"from": "v", "to": "v", "label": "get-user-teams-membership (GH_PAT_READ_ORG)"},
+    {"note": "Gate: continua solo si github.actor pertenece al team gh-squad-dlco y ref == main", "over": "v"},
+    {"from": "v", "to": "g", "label": "gate OK -> dispara generate-and-wrap-dek (needs: validation)", "return": true},
+    {"from": "g", "to": "g", "label": "checkout + build/verify OpenSSL pinneado (opcional) + install SDK"},
+    {"from": "g", "to": "g", "label": "openssl rand 32 (binario pinneado, ruta absoluta) -> DEK en memoria (bytearray)"},
+    {"from": "g", "to": "k", "label": "wrap_key(RSA-OAEP-256, DEK en claro)"},
+    {"from": "k", "to": "g", "label": "wrapped_dek (ciphertext)", "return": true},
+    {"from": "g", "to": "g", "label": "sobrescribir bytearray de la DEK con ceros (best-effort) y soltar referencia"},
+    {"from": "g", "to": "s", "label": "set_secret(dek-{dominio}-{capa}-v1-wrapped, wrapped_dek, tags de trazabilidad)"},
+    {"from": "s", "to": "g", "label": "secreto almacenado", "return": true},
+    {"from": "g", "to": "s", "label": "get_secret(secret_name)"},
+    {"from": "s", "to": "g", "label": "wrapped_dek_b64", "return": true},
+    {"from": "g", "to": "k", "label": "unwrap_key(RSA-OAEP-256, wrapped_dek)"},
+    {"from": "k", "to": "g", "label": "DEK desenvuelta (temporal, en memoria)", "return": true},
+    {"from": "g", "to": "g", "label": "copiar a bytearray, validar longitud == 32 bytes, sobrescribir con ceros y descartar (nunca se imprime ni loguea)"},
+    {"note": "Verificacion OK: ningun valor en claro sale del proceso ni se loguea", "over": "g"}
+  ]
+}

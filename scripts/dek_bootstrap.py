@@ -1,8 +1,15 @@
 # scripts/dek_bootstrap.py
+#
+# No habilitar logging HTTP verbose/debug del SDK de Azure en este script
+# (logging_enable=True, AZURE_LOG_LEVEL=debug, etc.): el body de la llamada
+# wrap_key() de más abajo contiene la DEK en claro, y un logger en modo debug
+# puede volcar cuerpos de request/response al log del step.
 import os
 import base64
+import shutil
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.keys.crypto import CryptographyClient, KeyWrapAlgorithm
 from azure.keyvault.secrets import SecretClient
@@ -14,21 +21,38 @@ dek_name = os.environ["SECRET_NAME"]
 
 credential = DefaultAzureCredential()
 
-# 1. Generar DEK en memoria usando OpenSSL RAND_bytes — nunca se escribe a disco
-dek_bytes = subprocess.check_output(["openssl", "rand", "32"], text=False)
-if len(dek_bytes) != 32:
-    raise RuntimeError(f"Unexpected DEK length from openssl rand: {len(dek_bytes)}")
+# 1. Resolver el binario de OpenSSL por ruta absoluta al build pinneado y
+#    verificado por SHA256 (si el step de build lo generó), en vez de confiar
+#    en el orden del PATH — evita que otro "openssl" presente en el PATH
+#    reemplace silenciosamente al binario auditado.
+pinned_openssl = Path(os.environ.get("OPENSSL_INSTALL_DIR", ""), "bin", "openssl")
+openssl_bin = str(pinned_openssl) if pinned_openssl.is_file() else (shutil.which("openssl") or "openssl")
 
-# 2. Obtener referencia a la KEK y envolver
+# 2. Generar DEK en memoria usando OpenSSL RAND_bytes — nunca se escribe a disco
+raw_dek = subprocess.check_output([openssl_bin, "rand", "32"], text=False, timeout=10)
+if len(raw_dek) != 32:
+    raise RuntimeError(f"Unexpected DEK length from openssl rand: {len(raw_dek)}")
+
+# bytearray (mutable) en vez de bytes: permite sobrescribir el buffer en
+# memoria antes de descartarlo. "dek_bytes = None" por sí solo únicamente
+# suelta la referencia — no borra el contenido, porque bytes es inmutable.
+dek_bytes = bytearray(raw_dek)
+raw_dek = None
+
+# 3. Obtener referencia a la KEK y envolver
 kek_identifier = f"{kek_vault_url}/keys/{kek_name}"
 crypto_client = CryptographyClient(kek_identifier, credential)
 wrap_result = crypto_client.wrap_key(KeyWrapAlgorithm.rsa_oaep_256, dek_bytes)
 wrapped_dek_b64 = base64.b64encode(wrap_result.encrypted_key).decode("utf-8")
 
-# 3. Borrar la referencia en claro explícitamente (best-effort en Python)
+# 4. Sobrescribir el buffer en memoria (best-effort: no hay mlock/memset a
+#    nivel de página en Python puro, y no cubre copias internas que el SDK
+#    de Azure haya hecho durante la llamada de red) y soltar la referencia
+for i in range(len(dek_bytes)):
+    dek_bytes[i] = 0
 dek_bytes = None
 
-# 4. Persistir SOLO el valor envuelto, con metadata de trazabilidad
+# 5. Persistir SOLO el valor envuelto, con metadata de trazabilidad
 secret_client = SecretClient(vault_url=secret_vault_url, credential=credential)
 secret_name = f"{dek_name}"
 

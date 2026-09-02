@@ -39,7 +39,15 @@ if len(raw_dek) != 32:
 dek_bytes = bytearray(raw_dek)
 raw_dek = None
 
-# 3. Obtener referencia a la KEK y envolver
+# 3. Obtener referencia a la KEK y envolver.
+#    Nota: puede aparecer en el log "Local wrap operation failed:
+#    'bytearray' object is not an instance of 'bytes'". Es inofensivo — el
+#    SDK intenta primero un wrap local (usa `cryptography`, que exige
+#    `bytes` estricto vía isinstance) y, al fallar por el tipo bytearray,
+#    reintenta automáticamente contra el servicio de Key Vault, que sí
+#    acepta bytearray. Se deja así a propósito: convertir a bytes() aquí
+#    para silenciar el mensaje crearía una copia inmutable adicional de la
+#    DEK en claro que no se puede zerar, contradiciendo el punto 4.
 kek_identifier = f"{kek_vault_url}/keys/{kek_name}"
 crypto_client = CryptographyClient(kek_identifier, credential)
 wrap_result = crypto_client.wrap_key(KeyWrapAlgorithm.rsa_oaep_256, dek_bytes)

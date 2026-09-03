@@ -52,6 +52,10 @@ kek_identifier = f"{kek_vault_url}/keys/{kek_name}"
 crypto_client = CryptographyClient(kek_identifier, credential)
 wrap_result = crypto_client.wrap_key(KeyWrapAlgorithm.rsa_oaep_256, dek_bytes)
 wrapped_dek_b64 = base64.b64encode(wrap_result.encrypted_key).decode("utf-8")
+# Versión exacta de la KEK usada (el cliente se crea sin versión — Key Vault
+# resuelve a la versión vigente al momento del wrap). Se guarda como tag para
+# que una futura rotación sepa con qué versión desenvolver este secreto.
+kek_version_used = wrap_result.key_id.split("/")[-1]
 
 # 4. Sobrescribir el buffer en memoria (best-effort: no hay mlock/memset a
 #    nivel de página en Python puro, y no cubre copias internas que el SDK
@@ -70,6 +74,7 @@ secret_client.set_secret(
     tags={
         "kek_vault": kek_vault_url,
         "wrapped_with_kek": kek_name,
+        "wrapped_with_kek_version": kek_version_used,
         "algorithm": "RSA-OAEP-256",
         "provisioned_by": "github-actions-dek-bootstrap",
         "provisioned_at": datetime.now(timezone.utc).isoformat(),

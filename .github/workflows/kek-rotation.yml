@@ -1,0 +1,90 @@
+name: 🔁 KEK Rotation Ceremony
+
+on:
+  workflow_dispatch:
+    inputs:
+      kek_vault_url:
+        required: true
+        type: string
+      kek_name:
+        required: true
+        type: string
+      secret_vault_url:
+        required: true
+        type: string
+      secret_name:
+        required: true
+        type: string
+      old_kek_version:
+        description: "Override manual de la versión vieja de la KEK. Vacío = se lee de la tag 'wrapped_with_kek_version' del secreto."
+        type: string
+        required: false
+        default: ""
+      plan_only:
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    outputs:
+      teams: ${{ steps.actorTeams.outputs.teams }}
+    steps:
+      - name: Get Teams from the Actor
+        uses: tspascoal/get-user-teams-membership@v2
+        id: actorTeams
+        with:
+          username: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_READ_ORG }}
+
+  rotate-kek:
+    name: KEK Rotation
+    needs: validation
+    if: github.ref == 'refs/heads/main' &&  (contains(needs.validation.outputs.teams, 'gh-squad-dlco'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install SDK
+        run: pip install azure-identity azure-keyvault-keys azure-keyvault-secrets
+
+      - name: Check Azure credentials (plan only)
+        if: ${{ inputs.plan_only == true }}
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SP }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_SP }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
+          KEK_NAME: ${{ inputs.kek_name }}
+          SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
+          SECRET_NAME: ${{ inputs.secret_name }}
+        run: python scripts/check_auth.py
+
+      - name: Unwrap and rewrap DEK
+        if: ${{ inputs.plan_only == false }}
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SP }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_SP }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
+          KEK_NAME: ${{ inputs.kek_name }}
+          OLD_KEK_VERSION: ${{ inputs.old_kek_version }}
+          SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
+          SECRET_NAME: ${{ inputs.secret_name }}
+        run: python scripts/rotate_kek.py
+
+      - name: Verify rotated DEK integrity
+        if: ${{ inputs.plan_only == false }}
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SP }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_SP }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
+          KEK_NAME: ${{ inputs.kek_name }}
+          SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
+          SECRET_NAME: ${{ inputs.secret_name }}
+        run: python scripts/verify_dek.py

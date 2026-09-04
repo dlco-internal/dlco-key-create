@@ -15,11 +15,6 @@ on:
       secret_name:
         required: true
         type: string
-      old_kek_version:
-        description: "Override manual de la versión vieja de la KEK. Vacío = se lee de la tag 'wrapped_with_kek_version' del secreto."
-        type: string
-        required: false
-        default: ""
       plan_only:
         type: boolean
         required: false
@@ -72,7 +67,6 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           KEK_VAULT_URL: ${{ inputs.kek_vault_url }}
           KEK_NAME: ${{ inputs.kek_name }}
-          OLD_KEK_VERSION: ${{ inputs.old_kek_version }}
           SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
           SECRET_NAME: ${{ inputs.secret_name }}
         run: python scripts/rotate_kek.py

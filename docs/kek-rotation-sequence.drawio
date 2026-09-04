@@ -1,0 +1,181 @@
+<mxfile host="Electron">
+  <diagram id="seqlayout-rotation" name="KEK Rotation Ceremony - Secuencia">
+    <mxGraphModel dx="2398" dy="971" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="u" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;participant=umlActor;verticalAlign=bottom;spacingBottom=-14;labelBackgroundColor=#ffffff;fillColor=#F4F8FE;strokeColor=#2E64C8;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeWidth=2;" value="Usuario&#xa;(GitHub Actor)" vertex="1">
+          <mxGeometry height="1700" width="30" x="60" y="17" as="geometry" />
+        </mxCell>
+        <mxCell id="v" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeWidth=2;" value="GitHub Actions&#xa;validation" vertex="1">
+          <mxGeometry height="1700" width="100" x="370" y="17" as="geometry" />
+        </mxCell>
+        <mxCell id="act0" parent="v" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#6666FF;" value="" vertex="1">
+          <mxGeometry height="183" width="10" x="45" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="r" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F6F8;strokeColor=#67AB9F;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeWidth=2;" value="GitHub Actions&#xa;rotate-kek" vertex="1">
+          <mxGeometry height="1700" width="100" x="700" y="17" as="geometry" />
+        </mxCell>
+        <mxCell id="rAct1" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#67AB9F;" value="" vertex="1">
+          <mxGeometry height="960" width="10" x="745" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="rAct2" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#67AB9F;" value="" vertex="1">
+          <mxGeometry height="380" width="10" x="745" y="1310" as="geometry" />
+        </mxCell>
+        <mxCell id="k" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#FDF3D8;strokeColor=#FFB570;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeWidth=2;" value="Azure Key Vault&#xa;(KEK)" vertex="1">
+          <mxGeometry height="1700" width="100" x="1030" y="17" as="geometry" />
+        </mxCell>
+        <mxCell id="actK1" parent="k" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#FFB570;" value="" vertex="1">
+          <mxGeometry height="50" width="10" x="45" y="563" as="geometry" />
+        </mxCell>
+        <mxCell id="actK2" parent="k" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#FFB570;" value="" vertex="1">
+          <mxGeometry height="50" width="10" x="45" y="743" as="geometry" />
+        </mxCell>
+        <mxCell id="actK3" parent="k" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#FFB570;" value="" vertex="1">
+          <mxGeometry height="50" width="10" x="45" y="1453" as="geometry" />
+        </mxCell>
+        <mxCell id="s" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#FDF3D8;strokeColor=#D6B656;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeWidth=2;" value="Azure Key Vault&#xa;(Secrets)" vertex="1">
+          <mxGeometry height="1700" width="100" x="1360" y="17" as="geometry" />
+        </mxCell>
+        <mxCell id="actS1" parent="s" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#FFB570;" value="" vertex="1">
+          <mxGeometry height="50" width="10" x="45" y="393" as="geometry" />
+        </mxCell>
+        <mxCell id="actS2" parent="s" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#FFB570;" value="" vertex="1">
+          <mxGeometry height="50" width="10" x="45" y="983" as="geometry" />
+        </mxCell>
+        <mxCell id="actS3" parent="s" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#FFB570;" value="" vertex="1">
+          <mxGeometry height="50" width="10" x="45" y="1103" as="geometry" />
+        </mxCell>
+        <mxCell id="actS4" parent="s" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;strokeColor=#FFB570;" value="" vertex="1">
+          <mxGeometry height="50" width="10" x="45" y="1343" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_dispatch" edge="1" parent="1" source="u" target="act0" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="workflow_dispatch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="note_inputs" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=6;" value="Inputs:&#xa;kek_vault_url&#xa;kek_name&#xa;secret_vault_url&#xa;secret_name" vertex="1">
+          <mxGeometry height="120" width="130" x="120" y="117" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_teams" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" value="get-user-teams-membership (GH_PAT_READ_ORG)">
+          <mxGeometry relative="1" x="0.5" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="480" y="160" />
+              <mxPoint x="480" y="190" />
+            </Array>
+            <mxPoint x="425" y="160" as="sourcePoint" />
+            <mxPoint x="425" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note_gate" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;" value="Gate: continua solo si github.actor pertenece al team gh-squad-dlco y ref == main" vertex="1">
+          <mxGeometry height="60" width="250" x="450" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_gate" edge="1" parent="1" target="rAct1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=1;exitY=1.0;" value="gate OK -&gt; dispara rotate-kek (needs: validation)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="290" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="loop_checkout" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" value="checkout + install SDK">
+          <mxGeometry relative="1" x="0.5" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="810" y="330" />
+              <mxPoint x="810" y="360" />
+            </Array>
+            <mxPoint x="755" y="330" as="sourcePoint" />
+            <mxPoint x="755" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_getsecret1" edge="1" parent="1" source="rAct1" target="actS1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="get_secret(secret_name)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_return1" edge="1" parent="1" source="actS1" target="rAct1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=0;exitY=1.0;" value="wrapped_dek_b64 + tags (incluye wrapped_with_kek_version)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="note_oldver" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=6;" value="Resolver la versi&#243;n vieja de la KEK desde la tag 'wrapped_with_kek_version' del secreto (sin override manual) -&gt; si falta, ERROR expl&#237;cito" vertex="1">
+          <mxGeometry height="70" width="320" x="770" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_unwrapOld" edge="1" parent="1" source="rAct1" target="actK1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="unwrap_key(RSA-OAEP-256, wrapped_dek) - versi&#243;n vieja">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_returnUnwrapOld" edge="1" parent="1" source="actK1" target="rAct1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=0;exitY=1.0;" value="DEK desenvuelta (temporal, en memoria)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="loop_validateOld" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" value="copiar a bytearray, validar longitud == 32 bytes (abortar si no coincide)">
+          <mxGeometry relative="1" x="0.5" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="810" y="670" />
+              <mxPoint x="810" y="700" />
+            </Array>
+            <mxPoint x="755" y="670" as="sourcePoint" />
+            <mxPoint x="755" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_wrapNew" edge="1" parent="1" source="rAct1" target="actK2" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="wrap_key(RSA-OAEP-256, DEK en claro) - sin versi&#243;n, resuelve a la vigente">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_returnWrapNew" edge="1" parent="1" source="actK2" target="rAct1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=0;exitY=1.0;" value="wrapped_dek nuevo + new_kek_version">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="loop_zero" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" value="sobrescribir bytearray de la DEK con ceros (best-effort) y soltar referencia">
+          <mxGeometry relative="1" x="0.5" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="810" y="850" />
+              <mxPoint x="810" y="880" />
+            </Array>
+            <mxPoint x="755" y="850" as="sourcePoint" />
+            <mxPoint x="755" y="880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note_noop" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=6;" value="Guard de no-op: si new_kek_version == old_kek_version -&gt; ERROR (la KEK a&#250;n no fue rotada en Key Vault)" vertex="1">
+          <mxGeometry height="60" width="320" x="770" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_setSecret" edge="1" parent="1" source="rAct1" target="actS2" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="set_secret(secret_name, new_wrapped_dek_b64, tags: wrapped_with_kek_version, rotated_from_kek_version, rotated_at, rotation_run_id)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_returnSetSecret" edge="1" parent="1" source="actS2" target="rAct1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=0;exitY=1.0;" value="secreto actualizado (nueva versi&#243;n de secreto creada, historial conservado)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_readback" edge="1" parent="1" source="rAct1" target="actS3" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="get_secret(secret_name) - lectura de verificaci&#243;n">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_returnReadback" edge="1" parent="1" source="actS3" target="rAct1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=0;exitY=1.0;" value="tags actuales">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="note_verifyTag" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=6;" value="Verifica que la tag 'wrapped_with_kek_version' qued&#243; en new_kek_version; si no -&gt; ERROR" vertex="1">
+          <mxGeometry height="50" width="300" x="770" y="1190" as="geometry" />
+        </mxCell>
+        <mxCell id="note_bridge" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;" value="Secreto re-envuelto y almacenado&lt;div&gt;Inicia verificaci&#243;n de integridad post-rotaci&#243;n&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="300" x="770" y="1250" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_getsecret2" edge="1" parent="1" source="rAct2" target="actS4" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="get_secret(secret_name)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_returnGetsecret2" edge="1" parent="1" source="actS4" target="rAct2" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=0;exitY=1.0;" value="wrapped_dek_b64">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_unwrapVerify" edge="1" parent="1" source="rAct2" target="actK3" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;entryX=0;entryY=0.0;" value="unwrap_key(RSA-OAEP-256, wrapped_dek)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_returnUnwrapVerify" edge="1" parent="1" source="actK3" target="rAct2" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;strokeColor=#999999;fontColor=#999999;exitX=0;exitY=1.0;" value="DEK desenvuelta (temporal, en memoria)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="loop_verifyFinal" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;" value="copiar a bytearray, validar longitud == 32 bytes, sobrescribir con ceros y descartar (nunca se imprime ni loguea)">
+          <mxGeometry relative="1" x="0.5" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="810" y="1560" />
+              <mxPoint x="810" y="1590" />
+            </Array>
+            <mxPoint x="755" y="1560" as="sourcePoint" />
+            <mxPoint x="755" y="1590" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note_final" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=6;" value="Verificaci&#243;n OK: el secreto rotado desenvuelve correctamente bajo la nueva versi&#243;n de la KEK; ning&#250;n valor en claro sale del proceso ni se loguea" vertex="1">
+          <mxGeometry height="60" width="320" x="770" y="1610" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

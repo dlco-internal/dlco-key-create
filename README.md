@@ -16,7 +16,7 @@ Este repositorio contiene el workflow y los scripts que:
 
 La DEK en texto plano **nunca** persiste fuera de la memoria del runner, nunca se escribe a disco, nunca se pasa por `GITHUB_OUTPUT`, y nunca se imprime en logs.
 
-Además del bootstrap inicial, el repositorio incluye una segunda ceremonia independiente para la **rotación de la KEK** una vez que esta cambia de versión en Key Vault — ver [Bootstrap de DEK](#bootstrap-de-dek) y [Rotación de KEK](#rotación-de-kek) más abajo.
+Además del bootstrap inicial, el repositorio incluye dos ceremonias independientes de rotación: la **rotación de la KEK** (re-envuelve la DEK existente cuando la KEK cambia de versión, sin regenerar la DEK) y la **rotación de la DEK** (genera un valor de DEK completamente nuevo) — ver [Bootstrap de DEK](#bootstrap-de-dek), [Rotación de KEK](#rotación-de-kek) y [Rotación de DEK](#rotación-de-dek) más abajo.
 
 ## Diagramas
 
@@ -32,6 +32,18 @@ Flujo completo del workflow `dek-bootstrap.yml`: gate de autorización por membr
 
 ![Diagrama de secuencia - DEK Bootstrap Ceremony](docs/dek-bootstrap-sequence.drawio.png)
 
+### Secuencia de la ceremonia KEK Rotation
+
+Flujo completo del workflow `kek-rotation.yml`: mismo gate de autorización por membresía de team, resolución de la versión vieja de la KEK desde la tag `wrapped_with_kek_version` (sin override manual), unwrap/rewrap de la DEK contra la versión vigente de la KEK, guard de no-op, y verificación final de integridad.
+
+![Diagrama de secuencia - KEK Rotation Ceremony](docs/kek-rotation-sequence.drawio.png)
+
+### Secuencia de la ceremonia DEK Rotation
+
+Flujo completo del workflow `dek-rotation.yml`: mismo gate de autorización por membresía de team, guard que exige que el secreto ya haya sido bootstrapeado (tag `wrapped_with_kek_version` presente), generación de una DEK nueva vía el mismo mecanismo OpenSSL pinneado del bootstrap, wrap contra la versión vigente de la KEK, almacenamiento como nueva versión del secreto, y verificación final de integridad.
+
+![Diagrama de secuencia - DEK Rotation Ceremony](docs/dek-rotation-sequence.drawio.png)
+
 Fuentes editables en [docs/](docs/) (`.drawio`, abrir con draw.io desktop o app.diagrams.net).
 
 ## Estructura del repositorio
@@ -41,11 +53,13 @@ Fuentes editables en [docs/](docs/) (`.drawio`, abrir con draw.io desktop o app.
 ├── .github/
 │   └── workflows/
 │       ├── dek-bootstrap.yml      # Workflow de la ceremonia de bootstrap
-│       └── kek-rotation.yml       # Workflow de la ceremonia de rotación de KEK
+│       ├── kek-rotation.yml       # Workflow de la ceremonia de rotación de KEK
+│       └── dek-rotation.yml       # Workflow de la ceremonia de rotación de DEK
 ├── scripts/
 │   ├── check_auth.py              # Validación de credenciales (modo plan_only, solo lectura)
 │   ├── dek_bootstrap.py           # Generación + wrap + almacenamiento
 │   ├── rotate_kek.py              # Unwrap con versión vieja + rewrap con versión vigente de la KEK
+│   ├── rotate_dek.py              # Guard de secreto bootstrapeado + regeneración + wrap + almacenamiento
 │   └── verify_dek.py              # Verificación post-wrap (unwrap + validación de longitud)
 └── README.md
 ```
@@ -151,9 +165,11 @@ Alternativa a los comandos CLI, útil si no tienes acceso a Azure CLI o si otro 
 | `GH_PAT_READ_ORG` | Secret | Personal Access Token con permiso de lectura sobre membresía de teams de la organización |
 | `AZURE_TENANT_ID` | Variable | Tenant ID de Entra ID |
 
+Estas mismas credenciales y variables se usan en los tres workflows (`dek-bootstrap.yml`, `kek-rotation.yml`, `dek-rotation.yml`) — no se requiere configuración adicional para la rotación de DEK.
+
 ### Control gate por membresía de equipo
 
-Ambos workflows (`dek-bootstrap.yml` y `kek-rotation.yml`) implementan su propio gate de autorización mediante un job `validation` que verifica si `github.actor` pertenece a un GitHub team autorizado (ej. `gh-data-security`), usando la action `tspascoal/get-user-teams-membership@v2`. El job de la ceremonia solo se ejecuta si esa condición se cumple:
+Los tres workflows (`dek-bootstrap.yml`, `kek-rotation.yml` y `dek-rotation.yml`) implementan su propio gate de autorización mediante un job `validation` que verifica si `github.actor` pertenece a un GitHub team autorizado (ej. `gh-data-security`), usando la action `tspascoal/get-user-teams-membership@v2`. El job de la ceremonia solo se ejecuta si esa condición se cumple:
 
 ```yaml
 if: github.ref == 'refs/heads/main' && contains(needs.validation.outputs.teams, 'gh-data-security')
@@ -206,7 +222,7 @@ Tags esperadas tras el bootstrap: `kek_vault`, `wrapped_with_kek`, `wrapped_with
 A pedido del equipo de seguridad, la generación de la DEK no usa `os.urandom()` de Python sino el comando `openssl rand 32`, invocado como subproceso desde [dek_bootstrap.py](scripts/dek_bootstrap.py). Esto se sostiene en dos piezas del workflow:
 
 1. El step `Build and install pinned OpenSSL` compila OpenSSL desde el tarball oficial, verifica su SHA256 contra el valor fijado en `OPENSSL_VERSION`/`OPENSSL_SHA256` (env del job), e instala el binario en `OPENSSL_INSTALL_DIR`.
-2. `dek_bootstrap.py` resuelve el binario por **ruta absoluta** a ese build pinneado (`OPENSSL_INSTALL_DIR/bin/openssl`) en vez de confiar en el `PATH` — así se evita que otro `openssl` presente en el runner reemplace silenciosamente al binario auditado. Si `use_pinned_openssl: false`, cae de vuelta al `openssl` del sistema.
+2. `dek_bootstrap.py` resuelve el binario por **ruta absoluta** a ese build pinneado (`OPENSSL_INSTALL_DIR/bin/openssl`) en vez de confiar en el `PATH` — así se evita que otro `openssl` presente en el runner reemplace silenciosamente al binario auditado. El workflow siempre compila y usa este build pinneado; no existe una opción para caer de vuelta al `openssl` del sistema.
 
 **Versión pinneada — mantenimiento requerido**: se usa la rama LTS de OpenSSL (`3.5.x`, actualmente `3.5.7`, soporte hasta abril de 2030), en vez de una rama no-LTS de soporte corto (~13 meses). Antes de esa fecha, actualizar `OPENSSL_VERSION`/`OPENSSL_SHA256` en el YAML a la siguiente rama LTS — verificar el hash oficial directamente contra `https://www.openssl.org/source/openssl-<version>.tar.gz.sha256` antes de aplicarlo, nunca copiarlo de una fuente intermedia sin confirmar.
 
@@ -224,16 +240,15 @@ El secreto se sobrescribe con el mismo nombre (`secret_name`) — Key Vault crea
 
 ### Cómo se ubica la versión vieja de la KEK
 
-Para desenvolver correctamente el secreto actual, el script necesita saber con qué versión específica de la KEK fue envuelto. Desde este cambio, `dek_bootstrap.py` guarda esa versión en la tag `wrapped_with_kek_version` de cada secreto que crea, y `rotate_kek.py` la lee de ahí automáticamente. Si el secreto no tiene esa tag (por ejemplo, si fue creado manualmente o antes de este cambio), se puede indicar explícitamente vía el input `old_kek_version`, que tiene prioridad sobre la tag. Si no hay tag ni override, el script falla con un mensaje claro en vez de adivinar.
+Para desenvolver correctamente el secreto actual, el script necesita saber con qué versión específica de la KEK fue envuelto. `dek_bootstrap.py` guarda esa versión en la tag `wrapped_with_kek_version` de cada secreto que crea, y `rotate_kek.py` la lee de ahí automáticamente — no existe un input de override manual. Si el secreto no tiene esa tag (por ejemplo, si fue creado manualmente o antes de este cambio), el script falla con un mensaje claro en vez de adivinar.
 
 ### Ejecución
 
 1. Ve a la pestaña **Actions** → `KEK Rotation Ceremony` → **Run workflow**.
 2. Ingresa `kek_vault_url`, `kek_name`, `secret_vault_url` y `secret_name` (la misma KEK y el mismo secreto del bootstrap original).
-3. Deja `old_kek_version` vacío salvo que necesites forzar una versión distinta a la de la tag del secreto.
-4. Opcional: marca `plan_only: true` para solo validar credenciales y permisos (reutiliza `check_auth.py`, igual que en el bootstrap) sin re-envolver nada.
-5. El job `validation` verifica la membresía de equipo del actor (mismo gate `gh-squad-dlco` que el bootstrap).
-6. Si el gate pasa, el job `rotate-kek` ejecuta `rotate_kek.py` (unwrap con la versión vieja → validación de longitud → rewrap con la versión vigente → almacenamiento) y luego `verify_dek.py` sin modificaciones, para confirmar que el secreto resultante desenvuelve correctamente bajo la nueva versión.
+3. Opcional: marca `plan_only: true` para solo validar credenciales y permisos (reutiliza `check_auth.py`, igual que en el bootstrap) sin re-envolver nada.
+4. El job `validation` verifica la membresía de equipo del actor (mismo gate `gh-squad-dlco` que el bootstrap).
+5. Si el gate pasa, el job `rotate-kek` ejecuta `rotate_kek.py` (unwrap con la versión vieja → validación de longitud → rewrap con la versión vigente → almacenamiento) y luego `verify_dek.py` sin modificaciones, para confirmar que el secreto resultante desenvuelve correctamente bajo la nueva versión.
 
 ### Guard de no-op
 
@@ -254,33 +269,77 @@ Tags esperadas tras una rotación (se suman/sobrescriben sobre las anteriores): 
 
 **Integridad del rewrap**: se ejecuta automáticamente como parte del job (`Verify rotated DEK integrity`), reutilizando `scripts/verify_dek.py` sin modificaciones y apuntado a la versión vigente de la KEK. El log del step confirma longitud de 32 bytes sin exponer el valor.
 
+## Rotación de DEK
+
+Ceremonia separada (`.github/workflows/dek-rotation.yml`), para cuando el *valor* de la DEK debe reemplazarse — no solo su envoltura. A diferencia de la [Rotación de KEK](#rotación-de-kek), que re-envuelve la DEK existente sin tocar su valor, esta ceremonia genera una DEK simétrica completamente nueva (mismo mecanismo `openssl rand 32` pinneado del [bootstrap](#generación-de-la-dek-mecanismo-basado-en-openssl)) y la envuelve con la versión vigente de la KEK, almacenándola como una nueva versión del secreto existente.
+
+Esta ceremonia exige que el secreto ya haya sido provisionado por `dek-bootstrap.yml` — no crea un secreto desde cero. Si el secreto no tiene la tag `wrapped_with_kek_version`, el script aborta con un mensaje explícito en vez de asumir nada.
+
+**Nota de alcance — re-cifrado de datos externos, fuera de este repositorio**: regenerar el valor de la DEK hace que cualquier dato ya cifrado *fuera de Key Vault* con la DEK anterior deje de ser descifrable para un consumidor que resuelva la versión "latest" del secreto después de esta ceremonia. Key Vault en sí no pierde el valor envuelto anterior — las versiones previas del secreto persisten (no se purgan) y siguen siendo recuperables desenvolviendo con la versión de KEK que las protegía, el mismo mecanismo del que depende `rotate_kek.py` — pero este repositorio no tiene visibilidad de qué sistemas consumen la DEK para cifrar datos fuera de Key Vault, por lo que no puede re-cifrar esos datos por sí mismo. Esa migración es responsabilidad del equipo dueño de los datos cifrados, fuera del alcance de este repositorio: **antes de correr esta ceremonia**, todo dato ya protegido con la DEK vigente debe re-cifrarse con la DEK nueva, o el sistema consumidor debe soportar descifrado explícito por versión de DEK (leyendo una versión específica del secreto en vez de "latest"). Se recomienda conservar tanto la versión anterior del secreto como la versión de KEK que la protegía durante un período de gracia mientras esa migración externa se completa — este repositorio solo rota la clave, nunca toca los datos cifrados con ella.
+
+### Ejecución
+
+1. Ve a la pestaña **Actions** → `DEK Rotation Ceremony` → **Run workflow**.
+2. Ingresa `kek_vault_url`, `kek_name`, `secret_vault_url` y `secret_name` (el mismo secreto del bootstrap original).
+3. Opcional: marca `plan_only: true` para solo validar credenciales y permisos (reutiliza `check_auth.py`) sin generar ni almacenar nada.
+4. El job `validation` verifica la membresía de equipo del actor (mismo gate `gh-squad-dlco`).
+5. Si el gate pasa, el job `rotate-dek` ejecuta:
+   - Build/verify del OpenSSL pinneado (mismo mecanismo del bootstrap) e instalación del SDK.
+   - `rotate_dek.py`: lee el secreto actual y valida que tenga la tag `wrapped_with_kek_version` (aborta si no) → genera una DEK nueva vía OpenSSL → la envuelve con la versión vigente de la KEK → almacena la nueva versión del secreto con tags de trazabilidad.
+   - `verify_dek.py` sin modificaciones, para confirmar que el secreto resultante desenvuelve correctamente.
+
+### Guard de secreto no bootstrapeado
+
+Si el secreto no tiene la tag `wrapped_with_kek_version`, el script aborta con error: esta ceremonia rota el valor de una DEK ya existente, no crea una desde cero (para eso está el [bootstrap](#bootstrap-de-dek)).
+
+### Verificar el resultado
+
+**Tags de trazabilidad del secreto:**
+
+```bash
+az keyvault secret show \
+  --vault-name <secret-vault-name> \
+  --name <secret-name> \
+  --query "tags"
+```
+
+Tags esperadas tras una rotación de DEK (se sobrescriben sobre las anteriores): `kek_vault`, `wrapped_with_kek`, `wrapped_with_kek_version` (nueva versión de KEK usada para el wrap), `algorithm`, `dek_rotated_at`, `dek_rotation_run_id`, `dek_rotated_from_secret_version` (identificador de la versión del secreto que quedó obsoleta, para coordinar el re-cifrado externo). `provisioned_by`/`provisioned_at` se conservan del bootstrap original.
+
+**Auditoría de la versión anterior**: el step `Regenerate, wrap, and store DEK` imprime en el log la versión del secreto que quedó superseded (nunca su valor) — mismo dato que queda en la tag `dek_rotated_from_secret_version`, para quien coordine el re-cifrado externo de datos protegidos con la DEK anterior.
+
+**Integridad de la DEK nueva**: se ejecuta automáticamente como parte del job (`Verify wrapped DEK integrity`), reutilizando `scripts/verify_dek.py` sin modificaciones. El log del step confirma longitud de 32 bytes sin exponer el valor.
+
 ## Controles de seguridad
 
 | Control | Ceremonia | Implementación |
 |---|---|---|
-| Generación y wrap atómico | Bootstrap | Mismo step, mismo job — la DEK en claro nunca se serializa entre steps |
-| Prohibición de persistencia en claro | Ambas | Nunca se escribe a disco, `GITHUB_OUTPUT`, ni logs |
-| Credencial explícita | Ambas | `ClientSecretCredential` construida directamente en cada script, sin depender de `DefaultAzureCredential()` ni de sesiones de CLI |
-| Scope de permisos mínimo | Ambas | SP con permisos acotados a la KEK y al vault de secretos específicos, no acceso amplio |
-| Aprobación de ejecución | Ambas | Gate por membresía de GitHub team |
-| Runner efímero | Ambas | GitHub-hosted, destruido al finalizar el job |
-| Trazabilidad | Ambas | Tags del secreto + run ID de GitHub Actions correlacionable con logs de Key Vault |
-| Verificación de integridad | Ambas | Unwrap post-almacenamiento con validación de longitud, sin exponer el valor |
-| Validación previa sin efectos secundarios | Ambas | Modo `plan_only` para probar credenciales antes de una ejecución real |
-| Generación basada en OpenSSL | Bootstrap | La DEK se genera con `openssl rand 32`, resuelto por ruta absoluta al binario pinneado (no por `PATH`) — ver [Generación de la DEK: mecanismo basado en OpenSSL](#generación-de-la-dek-mecanismo-basado-en-openssl) |
-| Build de OpenSSL pinneado y verificado | Bootstrap | Versión y SHA256 fijados en el workflow, verificados con `sha256sum --check --strict` antes de compilar |
-| Prohibición de logging HTTP verbose del SDK de Azure | Ambas | `wrap_key()` y `unwrap_key()` transmiten la DEK en claro en el body de la llamada a Key Vault — nunca habilitar `logging_enable=True` / `AZURE_LOG_LEVEL=debug` en estos scripts (ver nota en cada archivo) |
-| Sobrescritura best-effort de la DEK en memoria | Ambas | `dek_bootstrap.py` (DEK generada), `verify_dek.py` (DEK desenvuelta) y `rotate_kek.py` (DEK desenvuelta y re-envuelta) usan `bytearray` y sobrescriben el buffer con ceros antes de soltar la referencia — mitigación parcial, ver limitaciones en [Generación de la DEK](#generación-de-la-dek-mecanismo-basado-en-openssl) |
-| Rotación de KEK sin exposición de la DEK | Rotación | `rotate_kek.py` desenvuelve con la versión vieja de la KEK y re-envuelve con la versión vigente en un único proceso en memoria; `set_secret()` es la única llamada mutadora y va al final — si el unwrap o la validación de longitud fallan, no se escribe nada |
-| Versionado nativo de Key Vault en vez de naming propio | Rotación | El secreto rotado sobrescribe el mismo `secret_name` (Key Vault crea una versión nueva automáticamente y conserva las anteriores) — evita coordinar cambios de configuración en los consumidores al rotar |
+| Generación y wrap atómico | Bootstrap, Rotación de DEK | Mismo step, mismo job — la DEK en claro nunca se serializa entre steps |
+| Prohibición de persistencia en claro | Todas | Nunca se escribe a disco, `GITHUB_OUTPUT`, ni logs |
+| Credencial explícita | Todas | `ClientSecretCredential` construida directamente en cada script, sin depender de `DefaultAzureCredential()` ni de sesiones de CLI |
+| Scope de permisos mínimo | Todas | SP con permisos acotados a la KEK y al vault de secretos específicos, no acceso amplio |
+| Aprobación de ejecución | Todas | Gate por membresía de GitHub team |
+| Runner efímero | Todas | GitHub-hosted, destruido al finalizar el job |
+| Trazabilidad | Todas | Tags del secreto + run ID de GitHub Actions correlacionable con logs de Key Vault |
+| Verificación de integridad | Todas | Unwrap post-almacenamiento con validación de longitud, sin exponer el valor |
+| Validación previa sin efectos secundarios | Todas | Modo `plan_only` para probar credenciales antes de una ejecución real |
+| Generación basada en OpenSSL | Bootstrap, Rotación de DEK | La DEK se genera con `openssl rand 32`, resuelto por ruta absoluta al binario pinneado (no por `PATH`) — ver [Generación de la DEK: mecanismo basado en OpenSSL](#generación-de-la-dek-mecanismo-basado-en-openssl) |
+| Build de OpenSSL pinneado y verificado | Bootstrap, Rotación de DEK | Versión y SHA256 fijados en el workflow, verificados con `sha256sum --check --strict` antes de compilar |
+| Prohibición de logging HTTP verbose del SDK de Azure | Todas | `wrap_key()` y `unwrap_key()` transmiten la DEK en claro en el body de la llamada a Key Vault — nunca habilitar `logging_enable=True` / `AZURE_LOG_LEVEL=debug` en estos scripts (ver nota en cada archivo) |
+| Sobrescritura best-effort de la DEK en memoria | Todas | `dek_bootstrap.py`/`rotate_dek.py` (DEK generada), `verify_dek.py` (DEK desenvuelta) y `rotate_kek.py` (DEK desenvuelta y re-envuelta) usan `bytearray` y sobrescriben el buffer con ceros antes de soltar la referencia — mitigación parcial, ver limitaciones en [Generación de la DEK](#generación-de-la-dek-mecanismo-basado-en-openssl) |
+| Rotación de KEK sin exposición de la DEK | Rotación de KEK | `rotate_kek.py` desenvuelve con la versión vieja de la KEK y re-envuelve con la versión vigente en un único proceso en memoria; `set_secret()` es la única llamada mutadora y va al final — si el unwrap o la validación de longitud fallan, no se escribe nada |
+| Versionado nativo de Key Vault en vez de naming propio | Rotación de KEK, Rotación de DEK | El secreto rotado sobrescribe el mismo `secret_name` (Key Vault crea una versión nueva automáticamente y conserva las anteriores) — evita coordinar cambios de configuración en los consumidores al rotar |
+| Guard de secreto no bootstrapeado | Rotación de DEK | `rotate_dek.py` exige la tag `wrapped_with_kek_version` en el secreto antes de generar una DEK nueva — evita usar esta ceremonia sobre un secreto que nunca pasó por el bootstrap |
+| Trazabilidad de la versión anterior del secreto | Rotación de DEK | Tag `dek_rotated_from_secret_version` + línea de log — nunca el valor en claro — para coordinar el re-cifrado externo de datos protegidos con la DEK anterior (ver [Rotación de DEK](#rotación-de-dek)) |
+| Alcance acotado: no re-cifra datos externos | Rotación de DEK | Nota de alcance explícita — esta ceremonia rota la clave, nunca los datos cifrados con ella; esa migración es responsabilidad del consumidor de la DEK |
 
 ## Notas operativas
 
 - Trade-off de seguridad aceptado: autenticación con client secret (credencial estática) en lugar de OIDC federation, para alinear con el estándar organizacional.
 - El workflow depende de `actions/checkout@v5`. GitHub está migrando el runtime de Actions de Node 20 a Node 24; si aparecen warnings de deprecación, confirmar que el job ya corre en Node 24 (mensaje "This workflow is running with Node 24 by default" en el log) — es informativo, no bloquea la ejecución.
-- En el step "Generate, wrap, and store DEK" (bootstrap) puede aparecer en el log "Local wrap operation failed: 'bytearray' object is not an instance of 'bytes'". Es inofensivo: el SDK de Azure intenta primero envolver la DEK localmente (requiere `bytes` estricto) y, al fallar por el tipo `bytearray` (usado a propósito para poder zerar la DEK en memoria — ver más arriba), reintenta automáticamente contra el servicio de Key Vault, que sí completa el wrap correctamente. Confirmar que el step igual termina con "DEK wrapped and stored successfully." y que la verificación de integridad posterior pasa. El mismo comportamiento aplica al step "Unwrap and rewrap DEK" de la rotación.
-- Ambas ceremonias son procedimientos de **ceremonia**, no un pipeline operativo recurrente. Se sugiere que cada ejecución quede documentada.
+- En el step "Generate, wrap, and store DEK" (bootstrap) puede aparecer en el log "Local wrap operation failed: 'bytearray' object is not an instance of 'bytes'". Es inofensivo: el SDK de Azure intenta primero envolver la DEK localmente (requiere `bytes` estricto) y, al fallar por el tipo `bytearray` (usado a propósito para poder zerar la DEK en memoria — ver más arriba), reintenta automáticamente contra el servicio de Key Vault, que sí completa el wrap correctamente. Confirmar que el step igual termina con "DEK wrapped and stored successfully." y que la verificación de integridad posterior pasa. El mismo comportamiento aplica al step "Unwrap and rewrap DEK" de la rotación de KEK y al step "Regenerate, wrap, and store DEK" de la rotación de DEK.
+- Las tres ceremonias son procedimientos de **ceremonia**, no un pipeline operativo recurrente. Se sugiere que cada ejecución quede documentada.
 - Tras el aprovisionamiento inicial de todos los ambientes requeridos, evaluar deshabilitar (no eliminar) el Service Principal asociado, dado que la rotación de DEKs está proyectada a varios años.
-- **Exposición esperada de la DEK ante Key Vault**: como la KEK vive en HSM y su clave privada no es exportable, la operación `wrapKey`/`unwrapKey` la ejecuta el servicio de Key Vault del lado servidor — la DEK en claro viaja dentro del body de esa llamada HTTPS hacia Key Vault. Es exposición esperada y necesaria para este modelo de envelope encryption (va cifrada en tránsito por TLS); Azure documenta que los logs de diagnóstico de Key Vault registran metadata de la operación, nunca el material de la clave. Esto aplica tanto al bootstrap como a la rotación.
-- **Pendiente conocido**: el nombre del GitHub team autorizado difiere entre el YAML (`gh-squad-dlco`, gate real en ambos workflows) y este README (documentado antes como `gh-data-security`) — confirmar el nombre vigente y unificarlo antes de depender de este control en producción.
-- **Pendiente conocido**: `dek_bootstrap.py` y `verify_dek.py` instancian `DefaultAzureCredential()`, mientras que `check_auth.py` y `rotate_kek.py` usan `ClientSecretCredential` explícito como describe la sección [Modelo de autenticación](#modelo-de-autenticación). Funciona igual en la práctica (`DefaultAzureCredential` resuelve `AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`/`AZURE_TENANT_ID` vía su `EnvironmentCredential`), pero es inconsistente con el razonamiento de evitar cadenas de fallback impredecibles — alinear los dos scripts restantes a `ClientSecretCredential` explícito.
+- **Exposición esperada de la DEK ante Key Vault**: como la KEK vive en HSM y su clave privada no es exportable, la operación `wrapKey`/`unwrapKey` la ejecuta el servicio de Key Vault del lado servidor — la DEK en claro viaja dentro del body de esa llamada HTTPS hacia Key Vault. Es exposición esperada y necesaria para este modelo de envelope encryption (va cifrada en tránsito por TLS); Azure documenta que los logs de diagnóstico de Key Vault registran metadata de la operación, nunca el material de la clave. Esto aplica a las tres ceremonias.
+- **Pendiente conocido**: el nombre del GitHub team autorizado difiere entre el YAML (`gh-squad-dlco`, gate real en los tres workflows) y este README (documentado antes como `gh-data-security`) — confirmar el nombre vigente y unificarlo antes de depender de este control en producción.
+- **Pendiente conocido**: `dek_bootstrap.py` y `verify_dek.py` instancian `DefaultAzureCredential()`, mientras que `check_auth.py`, `rotate_kek.py` y `rotate_dek.py` usan `ClientSecretCredential` explícito como describe la sección [Modelo de autenticación](#modelo-de-autenticación). Funciona igual en la práctica (`DefaultAzureCredential` resuelve `AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`/`AZURE_TENANT_ID` vía su `EnvironmentCredential`), pero es inconsistente con el razonamiento de evitar cadenas de fallback impredecibles — alinear los dos scripts restantes a `ClientSecretCredential` explícito.
+- **Mantenimiento duplicado del pin de OpenSSL**: `OPENSSL_VERSION`/`OPENSSL_SHA256`/`OPENSSL_INSTALL_DIR` ahora están fijados de forma idéntica en `dek-bootstrap.yml` y `dek-rotation.yml` (no hay una reusable workflow/composite action en este repo que centralice el build). Al actualizar la versión LTS de OpenSSL, actualizar los dos archivos — olvidar uno deja a las ceremonias corriendo con versiones de OpenSSL distintas sin que nada lo marque como error.

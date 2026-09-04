@@ -9,11 +9,11 @@
   ],
   "messages": [
     {"from": "u", "to": "v", "label": "workflow_dispatch"},
-    {"note": "Inputs:\nkek_vault_url\nkek_name\nsecret_vault_url\nsecret_name\nuse_pinned_openssl", "over": "v"},
+    {"note": "Inputs:\nkek_vault_url\nkek_name\nsecret_vault_url\nsecret_name", "over": "v"},
     {"from": "v", "to": "v", "label": "get-user-teams-membership (GH_PAT_READ_ORG)"},
     {"note": "Gate: continua solo si github.actor pertenece al team gh-squad-dlco y ref == main", "over": "v"},
     {"from": "v", "to": "g", "label": "gate OK -> dispara generate-and-wrap-dek (needs: validation)", "return": true},
-    {"from": "g", "to": "g", "label": "checkout + build/verify OpenSSL pinneado (opcional) + install SDK"},
+    {"from": "g", "to": "g", "label": "checkout + build/verify OpenSSL pinneado + install SDK"},
     {"from": "g", "to": "g", "label": "openssl rand 32 (binario pinneado, ruta absoluta) -> DEK en memoria (bytearray)"},
     {"from": "g", "to": "k", "label": "wrap_key(RSA-OAEP-256, DEK en claro)"},
     {"from": "k", "to": "g", "label": "wrapped_dek (ciphertext)", "return": true},

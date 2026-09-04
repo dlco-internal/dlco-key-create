@@ -1,4 +1,4 @@
-name: 🔑 DEK Bootstrap Ceremony
+name: 🧬 DEK Rotation Ceremony
 
 on:
   workflow_dispatch:
@@ -35,9 +35,9 @@ jobs:
         with:
           username: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT_READ_ORG }}
-  
-  generate-and-wrap-dek:
-    name: DEK Ceremony
+
+  rotate-dek:
+    name: DEK Rotation
     needs: validation
     if: github.ref == 'refs/heads/main' &&  (contains(needs.validation.outputs.teams, 'gh-squad-dlco'))
     runs-on: ubuntu-latest
@@ -84,8 +84,8 @@ jobs:
           SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
           SECRET_NAME: ${{ inputs.secret_name }}
         run: python scripts/check_auth.py
-        
-      - name: Generate, wrap, and store DEK
+
+      - name: Regenerate, wrap, and store DEK
         if: ${{ inputs.plan_only == false }}
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SP }}
@@ -95,7 +95,7 @@ jobs:
           KEK_NAME: ${{ inputs.kek_name }}
           SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
           SECRET_NAME: ${{ inputs.secret_name }}
-        run: python scripts/dek_bootstrap.py
+        run: python scripts/rotate_dek.py
 
       - name: Verify wrapped DEK integrity
         if: ${{ inputs.plan_only == false }}
@@ -108,5 +108,3 @@ jobs:
           SECRET_VAULT_URL: ${{ inputs.secret_vault_url }}
           SECRET_NAME: ${{ inputs.secret_name }}
         run: python scripts/verify_dek.py
-
-        

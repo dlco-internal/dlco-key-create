@@ -29,7 +29,6 @@ kek_vault_url = os.environ["KEK_VAULT_URL"]
 kek_name = os.environ["KEK_NAME"]
 secret_vault_url = os.environ["SECRET_VAULT_URL"]
 secret_name = os.environ["SECRET_NAME"]
-old_kek_version_override = os.environ.get("OLD_KEK_VERSION", "").strip()
 
 EXPECTED_LENGTH_BYTES = 32  # AES-256
 
@@ -46,16 +45,16 @@ current_secret = secret_client.get_secret(secret_name)
 wrapped_dek_bytes = base64.b64decode(current_secret.value)
 prior_tags = current_secret.properties.tags or {}
 
-# 2. Resolver la versión vieja de la KEK: override manual > tag guardada al
-#    bootstrap/última rotación > error explícito. Sin esto no hay forma
-#    confiable de saber qué versión desenvuelve correctamente este secreto.
-old_kek_version = old_kek_version_override or prior_tags.get("wrapped_with_kek_version")
+# 2. Resolver la versión vieja de la KEK desde la tag guardada al
+#    bootstrap/última rotación. Sin esto no hay forma confiable de saber
+#    qué versión desenvuelve correctamente este secreto.
+old_kek_version = prior_tags.get("wrapped_with_kek_version")
 if not old_kek_version:
     print(
         "ERROR: no se pudo determinar la versión de KEK usada para envolver "
-        f"'{secret_name}' (no hay override OLD_KEK_VERSION ni tag "
-        "'wrapped_with_kek_version' en el secreto). Provee OLD_KEK_VERSION "
-        "manualmente."
+        f"'{secret_name}' (no hay tag 'wrapped_with_kek_version' en el "
+        "secreto — fue creado manualmente o antes de que este script "
+        "empezara a guardarla)."
     )
     sys.exit(1)
 

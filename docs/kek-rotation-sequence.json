@@ -1,0 +1,40 @@
+{
+  "title": "KEK Rotation Ceremony - Secuencia",
+  "participants": [
+    {"id": "u", "label": "Usuario\n(GitHub Actor)", "actor": true},
+    {"id": "v", "label": "GitHub Actions\nvalidation"},
+    {"id": "r", "label": "GitHub Actions\nrotate-kek"},
+    {"id": "k", "label": "Azure Key Vault\n(KEK)"},
+    {"id": "s", "label": "Azure Key Vault\n(Secrets)"}
+  ],
+  "messages": [
+    {"from": "u", "to": "v", "label": "workflow_dispatch"},
+    {"note": "Inputs:\nkek_vault_url\nkek_name\nsecret_vault_url\nsecret_name", "over": "v"},
+    {"from": "v", "to": "v", "label": "get-user-teams-membership (GH_PAT_READ_ORG)"},
+    {"note": "Gate: continua solo si github.actor pertenece al team gh-squad-dlco y ref == main", "over": "v"},
+    {"from": "v", "to": "r", "label": "gate OK -> dispara rotate-kek (needs: validation)", "return": true},
+    {"from": "r", "to": "r", "label": "checkout + install SDK"},
+    {"from": "r", "to": "s", "label": "get_secret(secret_name)"},
+    {"from": "s", "to": "r", "label": "wrapped_dek_b64 + tags (incluye wrapped_with_kek_version)", "return": true},
+    {"note": "Resolver la version vieja de la KEK desde la tag 'wrapped_with_kek_version' del secreto (sin override manual) -> si falta, ERROR explicito", "over": "r"},
+    {"from": "r", "to": "k", "label": "unwrap_key(RSA-OAEP-256, wrapped_dek) - version vieja"},
+    {"from": "k", "to": "r", "label": "DEK desenvuelta (temporal, en memoria)", "return": true},
+    {"from": "r", "to": "r", "label": "copiar a bytearray, validar longitud == 32 bytes (abortar si no coincide)"},
+    {"from": "r", "to": "k", "label": "wrap_key(RSA-OAEP-256, DEK en claro) - sin version, resuelve a la vigente"},
+    {"from": "k", "to": "r", "label": "wrapped_dek nuevo + new_kek_version", "return": true},
+    {"from": "r", "to": "r", "label": "sobrescribir bytearray de la DEK con ceros (best-effort) y soltar referencia"},
+    {"note": "Guard de no-op: si new_kek_version == old_kek_version -> ERROR (la KEK aun no fue rotada en Key Vault)", "over": "r"},
+    {"from": "r", "to": "s", "label": "set_secret(secret_name, new_wrapped_dek_b64, tags: wrapped_with_kek_version, rotated_from_kek_version, rotated_at, rotation_run_id)"},
+    {"from": "s", "to": "r", "label": "secreto actualizado (nueva version de secreto creada, historial conservado)", "return": true},
+    {"from": "r", "to": "s", "label": "get_secret(secret_name) - lectura de verificacion"},
+    {"from": "s", "to": "r", "label": "tags actuales", "return": true},
+    {"note": "Verifica que la tag 'wrapped_with_kek_version' quedo en new_kek_version; si no -> ERROR", "over": "r"},
+    {"note": "Secreto re-envuelto y almacenado\nInicia verificacion de integridad post-rotacion", "over": "r"},
+    {"from": "r", "to": "s", "label": "get_secret(secret_name)"},
+    {"from": "s", "to": "r", "label": "wrapped_dek_b64", "return": true},
+    {"from": "r", "to": "k", "label": "unwrap_key(RSA-OAEP-256, wrapped_dek)"},
+    {"from": "k", "to": "r", "label": "DEK desenvuelta (temporal, en memoria)", "return": true},
+    {"from": "r", "to": "r", "label": "copiar a bytearray, validar longitud == 32 bytes, sobrescribir con ceros y descartar (nunca se imprime ni loguea)"},
+    {"note": "Verificacion OK: el secreto rotado desenvuelve correctamente bajo la nueva version de la KEK; ningun valor en claro sale del proceso ni se loguea", "over": "r"}
+  ]
+}
